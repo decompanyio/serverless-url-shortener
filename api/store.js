@@ -1,14 +1,16 @@
 'use strict'
 
 const url = require('url')
-
-const AWS = require('aws-sdk')
-const S3 = new AWS.S3()
-
 const config = require('../config.json')
+const AWS = require('aws-sdk')
+const S3 = new AWS.S3({region: config.REGION})
+
+
 
 module.exports.handle = (event, context, callback) => {
-  let longUrl = JSON.parse(event.body).url || ''
+  const body = typeof(event.body)==='object'?event.body:JSON.parse(event.body);
+  let longUrl = body.url || ''
+ 
   validate(longUrl)
     .then(function () {
       return getPath()
@@ -22,6 +24,7 @@ module.exports.handle = (event, context, callback) => {
       return Promise.resolve(response)
     })
     .catch(function (err) {
+      console.log(err);
       let response = buildResponse(err.statusCode, err.message)
       return Promise.resolve(response)
     })
@@ -37,7 +40,6 @@ function validate (longUrl) {
       message: 'URL is required'
     })
   }
-
   let parsedUrl = url.parse(longUrl)
   if (parsedUrl.protocol === null || parsedUrl.host === null) {
     return Promise.reject({
@@ -78,6 +80,10 @@ function isPathFree (path) {
 }
 
 function saveRedirect (redirect) {
+  
+  redirect['ContentType'] ='text/html;charset=utf-8';
+  redirect['Body'] = Buffer.from(`<script>window.location.href = '${redirect.WebsiteRedirectLocation}'</script>`, 'binary');
+  //console.log("saveRedirect", redirect);
   return S3.putObject(redirect).promise()
     .then(() => Promise.resolve(redirect['Key']))
 }
@@ -86,10 +92,11 @@ function buildRedirect (path, longUrl = false) {
   let redirect = {
     'Bucket': config.BUCKET,
     'Key': path,
+    
   }
 
   if (longUrl) {
-    redirect['WebsiteRedirectLocation'] = longUrl
+    redirect['WebsiteRedirectLocation'] = longUrl;
   }
 
   return redirect
@@ -100,6 +107,10 @@ function buildRedirectUrl (path) {
   
   if ('BASE_URL' in config && config['BASE_URL'] !== '') {
     baseUrl = config['BASE_URL']
+  }
+
+  if(baseUrl.slice(-1) !== '/'){
+    baseUrl += "/"
   }
 
   return baseUrl + path

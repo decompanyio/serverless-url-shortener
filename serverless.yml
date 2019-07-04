@@ -10,6 +10,7 @@ provider:
     - Effect: Allow
       Action:
         - s3:PutObject
+        - s3:GetObject
       Resource: "arn:${file(config.json):S3_PARTITION}:s3:::${file(config.json):BUCKET}/*"
 
 functions:
