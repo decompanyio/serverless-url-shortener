@@ -11,6 +11,7 @@ provider:
       Action:
         - s3:PutObject
         - s3:GetObject
+        - dynamodb:*
       Resource: "arn:${file(config.json):S3_PARTITION}:s3:::${file(config.json):BUCKET}/*"
 
 functions:
@@ -43,3 +44,17 @@ resources:
             Resource:
             - arn:${file(config.json):S3_PARTITION}:s3:::${file(config.json):BUCKET}/*
             Principal: "*"
+    ShortUrlTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${file(config.json):DYNAMO_TABLE}
+        AttributeDefinitions:
+          - AttributeName: longUrl
+            AttributeType: S
+        KeySchema:
+          - AttributeName: longUrl
+            KeyType: HASH
+        # Set the capacity based on the stage
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5

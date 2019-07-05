@@ -4,7 +4,8 @@ const url = require('url')
 const config = require('../config.json')
 const AWS = require('aws-sdk')
 const S3 = new AWS.S3({region: config.REGION})
-
+const dynamo = new AWS.DynamoDB({region: config.REGION})
+const DYNAMO_TABLE = config.DYNAMO_TABLE;
 
 
 module.exports.handle = (event, context, callback) => {
@@ -12,10 +13,25 @@ module.exports.handle = (event, context, callback) => {
   let longUrl = body.url || ''
  
   validate(longUrl)
-    .then(function () {
-      return getPath()
+    .then(function() {
+      return getRedirectDynamo(longUrl);
+    })
+    .then(function(existShortUrl) {
+      //console.log("existShortUrl", existShortUrl);
+      if(existShortUrl){
+        //let response = buildResponse(200, 'URL already created', existShortUrl.path)
+        const response = {
+          statusCode: 200,
+          message: "URL already created",
+          path: existShortUrl.path
+        }
+        return Promise.reject(response)
+      } else {
+        return getPath();
+      }
     })
     .then(function (path) {
+      console.log("path", path);
       let redirect = buildRedirect(path, longUrl)
       return saveRedirect(redirect)
     })
@@ -24,13 +40,14 @@ module.exports.handle = (event, context, callback) => {
       return Promise.resolve(response)
     })
     .catch(function (err) {
-      console.log(err);
-      let response = buildResponse(err.statusCode, err.message)
+      console.log("err", err);
+      let response = buildResponse(err.statusCode, err.message, err.path)
       return Promise.resolve(response)
     })
     .then(function (response) {
       callback(null, response)
     })
+    
 }
 
 function validate (longUrl) {
@@ -84,8 +101,52 @@ function saveRedirect (redirect) {
   redirect['ContentType'] ='text/html;charset=utf-8';
   redirect['Body'] = Buffer.from(`<script>window.location.href = '${redirect.WebsiteRedirectLocation}'</script>`, 'binary');
   //console.log("saveRedirect", redirect);
-  return S3.putObject(redirect).promise()
-    .then(() => Promise.resolve(redirect['Key']))
+  return saveRedirectDynamo(redirect).then(()=>S3.putObject(redirect).promise()
+    .then(() => Promise.resolve(redirect['Key'])));
+}
+
+function saveRedirectDynamo(redirect) {
+  return dynamo.putItem({
+    TableName: DYNAMO_TABLE,
+    ReturnConsumedCapacity: "TOTAL", 
+    Item: {
+      longUrl: {S: redirect.WebsiteRedirectLocation},
+      path: {S: redirect.Key},
+      created: {N: Date.now()+""}
+    }
+    
+  }).promise();
+   
+}
+
+function getRedirectDynamo(longUrl) {
+
+  return new Promise((resolve, reject)=>{
+    const params = {
+      TableName: DYNAMO_TABLE,
+      Key: {
+        "longUrl": {S: longUrl}
+      }
+    };
+
+    dynamo.getItem(params, function(err, data){
+      if(err){
+        reject(err);
+      } else {
+        //console.log("get query in dynamodb", data.Item);
+        if(data.Item){
+          resolve({longUrl: data.Item.longUrl.S, path: data.Item.path.S});
+        } else {
+          resolve(null);
+        }
+        
+      }
+    });
+    
+    return 
+  })
+  
+   
 }
 
 function buildRedirect (path, longUrl = false) {

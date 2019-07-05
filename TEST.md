@@ -1,0 +1,1 @@
+sls invoke local --function store --data '{"body": {"url":"https://www.polarishare.com/jay/ethereum-yellowpaper-dghgs9/"}}'
