@@ -12,7 +12,9 @@ provider:
         - s3:PutObject
         - s3:GetObject
         - dynamodb:*
-      Resource: "arn:${file(config.json):S3_PARTITION}:s3:::${file(config.json):BUCKET}/*"
+      Resource: 
+        - "arn:${file(config.json):S3_PARTITION}:s3:::${file(config.json):BUCKET}/*"
+        - "arn:aws:dynamodb:${self:provider.region}:*:table/${file(config.json):DYNAMO_TABLE}"
 
 functions:
   store:
