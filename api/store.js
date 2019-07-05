@@ -97,9 +97,11 @@ function isPathFree (path) {
 }
 
 function saveRedirect (redirect) {
-  
+  //const html = `<script>window.location.href = '${redirect.WebsiteRedirectLocation}'</script>`;
+  //const html = `<html><meta http-equiv="refresh" content="1; url=${redirect.WebsiteRedirectLocation}"></meta></html>`
+
   redirect['ContentType'] ='text/html;charset=utf-8';
-  redirect['Body'] = Buffer.from(`<script>window.location.href = '${redirect.WebsiteRedirectLocation}'</script>`, 'binary');
+  //redirect['Body'] = Buffer.from(html, 'binary');
   //console.log("saveRedirect", redirect);
   return saveRedirectDynamo(redirect).then(()=>S3.putObject(redirect).promise()
     .then(() => Promise.resolve(redirect['Key'])));
