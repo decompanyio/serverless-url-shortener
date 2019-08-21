@@ -11,9 +11,9 @@ const DYNAMO_TABLE = config.DYNAMO_TABLE;
 module.exports.handle = (event, context, callback) => {
   const body = typeof(event.body)==='object'?event.body:JSON.parse(event.body);
   let longUrl = body.url || ''
- 
+  longUrl = encodeURI(longUrl)
   validate(longUrl)
-    .then(function() {
+    .then(function(longUrl) {
       return getRedirectDynamo(longUrl);
     })
     .then(function(existShortUrl) {
@@ -65,7 +65,7 @@ function validate (longUrl) {
     })
   }
 
-  return Promise.resolve(longUrl)
+  return Promise.resolve(longUrl);
 }
 
 function getPath () {
